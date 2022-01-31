@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS artists(
     popularity smallint,
     image_url VARCHAR(3000),
     spotify_id VARCHAR(62) UNIQUE NOT NULL,
-    spotify_url VARCHAR(3000)
+    spotify_url VARCHAR(3000) UNIQUE NOT NULL,
+    apple_url VARCHAR(3000) UNIQUE NOT NULL
 );

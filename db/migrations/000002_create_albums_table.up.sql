@@ -7,5 +7,6 @@ CREATE TABLE IF NOT EXISTS albums(
     image_url VARCHAR(3000),
     spotify_id VARCHAR(62) UNIQUE NOT NULL,
     spotify_url VARCHAR(3000),
+    apple_url VARCHAR(3000) UNIQUE NOT NULL,
     artist_id integer REFERENCES artists (artist_id)
 );
