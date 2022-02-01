@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/tgmendes/spotistats/repo"
-	"github.com/tgmendes/spotistats/spotify"
+	"github.com/tgmendes/musicmanager/repo"
+	"github.com/tgmendes/musicmanager/spotify"
 	"golang.org/x/oauth2"
 	"html/template"
 	"log"
@@ -29,7 +29,7 @@ func NewHandler(auth *Auth, store *repo.Store) (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) Authorise(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) AuthoriseSpotify(w http.ResponseWriter, _ *http.Request) {
 	url := h.Auth.AuthCodeURL()
 	t, err := template.ParseFiles("static/authorise.html")
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *Handler) storeToken(ctx context.Context, tkn *oauth2.Token) error {
 		AccessToken:  tkn.AccessToken,
 		RefreshToken: tkn.RefreshToken,
 	}
-	err = h.Store.CreateOrUpdateToken(ctx, prof.ID, dbTkn)
+	err = h.Store.CreateOrUpdateSpotifyToken(ctx, prof.ID, dbTkn)
 	if err != nil {
 		return fmt.Errorf("unable to store token: %w", err)
 	}

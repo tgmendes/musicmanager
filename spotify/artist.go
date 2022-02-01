@@ -11,16 +11,16 @@ import (
 )
 
 type Artist struct {
-	Id         string   `json:"id"`
-	Genres     []string `json:"genres"`
-	Images     []Image  `json:"images"`
-	Name       string   `json:"name"`
-	Popularity int      `json:"popularity"`
-	Type       string   `json:"type"`
-	Uri        string   `json:"uri"`
+	ID         string  `json:"id"`
+	Href       string  `json:"href"`
+	Images     []Image `json:"images"`
+	Name       string  `json:"name"`
+	Popularity int     `json:"popularity"`
+	URI        string  `json:"uri"`
 }
 
 type ArtistsResponse struct {
+	Href     string   `json:"href"`
 	Items    []Artist `json:"items"`
 	Previous string   `json:"previous"`
 	Next     string   `json:"next"`

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
-	"github.com/tgmendes/spotistats/auth"
-	"github.com/tgmendes/spotistats/repo"
+	"github.com/tgmendes/musicmanager/auth"
+	"github.com/tgmendes/musicmanager/repo"
 	"log"
 	"net/http"
 	"os"
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-	r.Get("/authorise", h.Authorise)
+	r.Get("/spotify-login", h.AuthoriseSpotify)
 	r.Get("/callback", h.AuthCallback)
 
 	// Make a channel to listen for an interrupt or terminate signal from the OS.

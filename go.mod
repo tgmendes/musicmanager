@@ -1,4 +1,4 @@
-module github.com/tgmendes/spotistats
+module github.com/tgmendes/musicmanager
 
 go 1.17
 

@@ -10,16 +10,29 @@ import (
 )
 
 type Track struct {
-	Id         string   `json:"id"`
+	ID         string   `json:"id"`
 	Genres     []string `json:"genres"`
 	Images     []Image  `json:"images"`
 	Name       string   `json:"name"`
 	Popularity int      `json:"popularity"`
 	Type       string   `json:"type"`
 	URI        string   `json:"uri"`
+	Album      Album    `json:"album"`
+	Artists    []Artist `json:"artists"`
+}
+
+type TrackItem struct {
+	Track Track `json:"track"`
+}
+
+type ExternalIDs struct {
+	ISRC string `json:"isrc"`
+	EAN  string `json:"ean"`
+	UPC  string `json:"upc"`
 }
 
 type TracksResponse struct {
+	Href     string  `json:"href"`
 	Items    []Track `json:"items"`
 	Previous string  `json:"previous"`
 	Next     string  `json:"next"`

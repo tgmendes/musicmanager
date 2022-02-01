@@ -1,17 +1,12 @@
 version: '3.1'
 
 services:
-  redis:
-    image: redis
-    restart: always
-    ports:
-      - "6379:6379"
   postgres:
     image: postgres:14
     restart: always
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=someuser
-      - POSTGRES_PASSWORD=somepassword
-      - POSTGRES_DB=somedb
+      - POSTGRES_USER=musicuser
+      - POSTGRES_PASSWORD=awesomemusicstuff
+      - POSTGRES_DB=musicmanager

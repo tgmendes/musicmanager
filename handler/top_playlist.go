@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tgmendes/spotistats/repo"
-	"github.com/tgmendes/spotistats/spotify"
+	"github.com/tgmendes/musicmanager/repo"
+	"github.com/tgmendes/musicmanager/spotify"
 	"time"
 )
 
