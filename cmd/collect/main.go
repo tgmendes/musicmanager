@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/jackc/pgx/v4"
 	"github.com/tgmendes/musicmanager/auth"
 	"github.com/tgmendes/musicmanager/handler"
@@ -27,12 +26,10 @@ func main() {
 		panic("no conn")
 	}
 
-	store := repo.Store{DB: conn}
-
 	a := auth.NewAuth(clientID, clientSecret, redirectURL, auth.AllScopes())
 
-	tknRepo := repo.Store{DB: conn}
-	tkns, err := tknRepo.FetchAll(ctx)
+	store := repo.Store{DB: conn}
+	tkns, err := store.FetchAll(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -51,10 +48,14 @@ func main() {
 
 	cl := a.Client(ctx, &token)
 	spotCl := spotify.NewClient(cl)
-	ph := handler.Playlist{Store: &store, SpotifyClient: spotCl}
-	err = ph.CreateMonthlyTopPlaylist(ctx, userID)
-	if err != nil {
-		fmt.Println(err)
+
+	h := handler.Handler{
+		Store:         &store,
+		SpotifyClient: spotCl,
 	}
 
+	err = h.StorePlaylistData(ctx, userID)
+	if err != nil {
+		panic(err)
+	}
 }

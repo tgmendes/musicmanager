@@ -113,6 +113,29 @@ func (c *Client) CreatePlaylist(ctx context.Context, userID string, reqPlaylist 
 	return playlist, nil
 }
 
+func (c *Client) GetPlaylistsByURL(ctx context.Context, url string) (PlaylistsResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return PlaylistsResponse{}, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return PlaylistsResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return PlaylistsResponse{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var plResp PlaylistsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&plResp); err != nil {
+		return PlaylistsResponse{}, fmt.Errorf("unable to unmarshal response: %w", err)
+	}
+	return plResp, nil
+}
+
 func (c *Client) GetPlaylistItems(ctx context.Context, url string) (PlaylistItems, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

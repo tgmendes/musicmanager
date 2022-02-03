@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/tgmendes/musicmanager/repo"
 	"github.com/tgmendes/musicmanager/spotify"
@@ -15,31 +14,72 @@ func (h Handler) StorePlaylistData(ctx context.Context, userID string) error {
 		return err
 	}
 
-	counter := 1
-	for _, playlist := range playlistData.Items {
-		newPlaylist := repo.Playlist{
-			Name:       playlist.Name,
-			Type:       repo.PlaylistTypeGeneric,
-			Created:    time.Now().UTC(),
-			SpotifyID:  &playlist.ID,
-			SpotifyURL: &playlist.Href,
-		}
-		err := h.Store.CreatePlaylist(ctx, userID, newPlaylist)
-		if err != nil {
-			return err
+	for {
+		for _, playlist := range playlistData.Items {
+			fmt.Printf("processing %s playlist\n", playlist.Name)
+			fmt.Printf("number of tracks: %d\n", playlist.Items.Total)
+			newPlaylist := repo.Playlist{
+				Name:       playlist.Name,
+				Type:       repo.PlaylistTypeGeneric,
+				Created:    time.Now().UTC(),
+				SpotifyID:  &playlist.ID,
+				SpotifyURL: &playlist.Href,
+			}
+			err := h.Store.CreatePlaylist(ctx, userID, newPlaylist)
+			if err != nil {
+				return err
+			}
+
+			err = h.iterPlaylistTracks(ctx, playlist, h.StoreTrack)
+			if err != nil {
+				return err
+			}
+
+			time.Sleep(1 * time.Second)
 		}
 
-		err = h.iterPlaylistTracks(ctx, playlist, h.StoreTrack)
-		if err != nil {
-			return err
-		}
-		if counter == 1 {
+		if playlistData.Next == "" {
 			return nil
 		}
-		time.Sleep(1 * time.Second)
+
+		playlistData, err = h.SpotifyClient.GetPlaylistsByURL(ctx, playlistData.Next)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (h *Handler) iterPlaylistTracks(ctx context.Context, playlist spotify.Playlist, callbackFn func(ctx context.Context, track spotify.Track) error) error {
+	currItems, err := h.SpotifyClient.GetPlaylistItems(ctx, playlist.Items.Href)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	for {
+		for _, item := range currItems.Items {
+			if item.Track.ID == "" {
+				fmt.Printf("Track %s has empty ID", item.Track.Name)
+				continue
+			}
+			err := callbackFn(ctx, item.Track)
+			if err != nil {
+				return err
+			}
+
+			err = h.Store.AddPlaylistTrack(ctx, playlist.ID, item.Track.ExternalIDs.ISRC)
+			if err != nil {
+				return err
+			}
+		}
+
+		if currItems.Next == "" {
+			return nil
+		}
+		currItems, err = h.SpotifyClient.GetPlaylistItems(ctx, currItems.Next)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 //
@@ -102,38 +142,3 @@ func (h Handler) StorePlaylistData(ctx context.Context, userID string) error {
 // 	return nil
 //
 // }
-
-func (h *Handler) iterPlaylistTracks(ctx context.Context, playlist spotify.Playlist, callbackFn func(ctx context.Context, track spotify.Track) error) error {
-	currItems, err := h.SpotifyClient.GetPlaylistItems(ctx, playlist.Items.Href)
-	if err != nil {
-		return err
-	}
-
-	count := 0
-	for {
-		for _, item := range currItems.Items {
-			err := callbackFn(ctx, item.Track)
-			if err != nil {
-				return err
-			}
-
-			err = h.Store.AddPlaylistTrack(ctx, playlist.ID, item.Track.ID)
-			if err != nil {
-				return err
-			}
-		}
-
-		if currItems.Next == "" {
-			return nil
-		}
-		currItems, err = h.SpotifyClient.GetPlaylistItems(ctx, currItems.Next)
-		if err != nil {
-			return err
-		}
-		count++
-		if count > 5 {
-			return errors.New("exceeded loop limit")
-		}
-		fmt.Printf("Next tracks: %s\n", currItems.Next)
-	}
-}

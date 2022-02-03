@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS playlists(
 );
 
 CREATE TABLE IF NOT EXISTS playlist_tracks(
-    playlist_id integer REFERENCES playlists(playlist_id),
-    track_id integer REFERENCES tracks(track_id),
+    playlist_id integer NOT NULL REFERENCES playlists(playlist_id),
+    track_id integer NOT NULL REFERENCES tracks(track_id),
     UNIQUE (playlist_id, track_id)
 );

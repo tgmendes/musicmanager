@@ -58,11 +58,11 @@ func (s *Store) CreatePlaylist(ctx context.Context, userID string, playlist Play
 	return nil
 }
 
-func (s *Store) AddPlaylistTrack(ctx context.Context, playlistSpotifyID, trackSpotifyID string) error {
+func (s *Store) AddPlaylistTrack(ctx context.Context, playlistSpotifyID, trackISRC string) error {
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 	playlistQ := playlistBySpotifyIDQuery(playlistSpotifyID)
-	trackQ := trackBySpotifyIDQuery(trackSpotifyID)
+	trackQ := trackByISRCQuery(trackISRC)
 
 	sql, args, err := psql.
 		Insert("playlist_tracks").

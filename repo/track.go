@@ -43,9 +43,9 @@ func (s *Store) CreateOrUpdateTrack(ctx context.Context, track Track) error {
 	return nil
 }
 
-func trackBySpotifyIDQuery(spotifyID string) sq.SelectBuilder {
+func trackByISRCQuery(isrc string) sq.SelectBuilder {
 	return sq.
 		Select("track_id").
 		From("tracks").
-		Where("spotify_id = ?", spotifyID)
+		Where("isrc = ?", isrc)
 }
