@@ -10,15 +10,17 @@ import (
 )
 
 type Track struct {
-	ID         string   `json:"id"`
-	Genres     []string `json:"genres"`
-	Images     []Image  `json:"images"`
-	Name       string   `json:"name"`
-	Popularity int      `json:"popularity"`
-	Type       string   `json:"type"`
-	URI        string   `json:"uri"`
-	Album      Album    `json:"album"`
-	Artists    []Artist `json:"artists"`
+	ID          string      `json:"id"`
+	Duration    int         `json:"duration_ms"`
+	Genres      []string    `json:"genres"`
+	Images      []Image     `json:"images"`
+	Name        string      `json:"name"`
+	Popularity  int         `json:"popularity"`
+	Type        string      `json:"type"`
+	HRef        string      `json:"href"`
+	Album       Album       `json:"album"`
+	Artists     []Artist    `json:"artists"`
+	ExternalIDs ExternalIDs `json:"external_ids"`
 }
 
 type TrackItem struct {

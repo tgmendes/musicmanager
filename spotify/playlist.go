@@ -33,7 +33,7 @@ type Playlist struct {
 	Public        bool          `json:"public"`
 	Collaborative bool          `json:"collaborative"`
 	Items         PlaylistItems `json:"tracks"`
-	URI           string        `json:"uri"`
+	Href          string        `json:"href"`
 }
 
 type PlaylistItems struct {

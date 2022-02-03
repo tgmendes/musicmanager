@@ -16,7 +16,6 @@ type Artist struct {
 	Images     []Image `json:"images"`
 	Name       string  `json:"name"`
 	Popularity int     `json:"popularity"`
-	URI        string  `json:"uri"`
 }
 
 type ArtistsResponse struct {
