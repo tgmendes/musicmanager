@@ -18,12 +18,12 @@ const (
 	// ScopePlaylistReadPrivate seeks permission to read
 	// a user's private playlists.
 	ScopePlaylistReadPrivate = "playlist-read-private"
+	// ScopePlaylistReadCollaborative seeks permission to read
+	// a user's collaborative playlists.
+	ScopePlaylistReadCollaborative = "playlist-read-collaborative"
 	// ScopePlaylistModifyPrivate seeks permission to modify
 	// a user's private playlists.
 	ScopePlaylistModifyPrivate = "playlist-modify-private"
-	// ScopePlaylistModifyPublic seeks permission to modify
-	// a user's private playlists.
-	ScopePlaylistModifyPublic = "playlist-modify-public"
 	// ScopeUserReadPrivate seeks read access to a user's
 	// subscription details (type of user account).
 	ScopeUserReadPrivate = "user-read-private"
@@ -44,8 +44,8 @@ const (
 func AllScopes() []string {
 	return []string{
 		ScopePlaylistReadPrivate,
+		ScopePlaylistReadCollaborative,
 		ScopePlaylistModifyPrivate,
-		ScopePlaylistModifyPublic,
 		ScopeUserReadPrivate,
 		ScopeUserReadEmail,
 		ScopeUserReadCurrentlyPlaying,
