@@ -3,40 +3,49 @@ package repo
 import (
 	"context"
 	"fmt"
-	"time"
+	sq "github.com/Masterminds/squirrel"
 )
+
+var newTrackCols = []string{"name", "duration_ms", "isrc",
+	"spotify_id", "spotify_url", "apple_url", "album_id", "artist_id"}
 
 type Track struct {
 	Name            string
-	Popularity      int
-	ReleaseDate     *time.Time
 	Duration        int
-	LastPlayed      *time.Time
-	SpotifyID       string
-	SpotifyURL      string
+	ISRC            *string
+	SpotifyID       *string
+	SpotifyURL      *string
+	AppleURL        *string
 	AlbumSpotifyID  string
 	ArtistSpotifyID string
 }
 
-func (s *Store) CreateOrUpdate(ctx context.Context, track Track) error {
-	q := `
-INSERT INTO tracks(name, popularity, release_date, duration_ms, last_played, spotify_id, spotify_url, album_id, artist_id)
-VALUES (
-$1,
-$2,
-$3,
-$4,
-$5,
-$6,
-$7,
-(SELECT album_id FROM albums WHERE spotify_id = $8),
-(SELECT artist_id FROM artists WHERE spotify_id = $9))
-ON CONFLICT (spotify_id) DO UPDATE SET popularity = EXCLUDED.popularity, play_count = tracks.play_count + 1;
-`
-	_, err := s.DB.Exec(ctx, q, track.Name, track.Popularity, track.ReleaseDate, track.Duration, track.LastPlayed,
-		track.SpotifyID, track.SpotifyURL, track.AlbumSpotifyID, track.ArtistSpotifyID)
+func (s *Store) CreateOrUpdateTrack(ctx context.Context, track Track) error {
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+	artistQ := artistBySpotifyIDQuery(track.ArtistSpotifyID)
+	albumQ := albumBySpotifyIDQuery(track.AlbumSpotifyID)
+
+	sql, args, err := psql.Insert("tracks").
+		Columns(newTrackCols...).
+		Values(track.Name, track.Duration, track.ISRC, track.SpotifyID, track.SpotifyURL,
+			track.AppleURL, SubQuery(albumQ), SubQuery(artistQ)).
+		Suffix("ON CONFLICT DO NOTHING").
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.DB.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("unable to create track: %w", err)
 	}
 	return nil
+}
+
+func trackBySpotifyIDQuery(spotifyID string) sq.SelectBuilder {
+	return sq.
+		Select("track_id").
+		From("tracks").
+		Where("spotify_id = ?", spotifyID)
 }

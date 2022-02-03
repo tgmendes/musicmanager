@@ -3,31 +3,47 @@ package repo
 import (
 	"context"
 	"fmt"
-	"time"
+	sq "github.com/Masterminds/squirrel"
 )
+
+var newAlbumCols = []string{"name", "total_tracks", "image_url",
+	"spotify_id", "spotify_url", "apple_url", "artist_id"}
 
 type Album struct {
 	Name            string
-	Popularity      int
-	ReleaseDate     *time.Time
 	TotalTracks     int
-	ImageURL        string
-	SpotifyID       string
-	SpotifyURL      string
+	ImageURL        *string
+	SpotifyID       *string
+	SpotifyURL      *string
+	AppleURL        *string
 	ArtistSpotifyID string
 }
 
 func (s *Store) CreateOrUpdateAlbum(ctx context.Context, album Album) error {
-	q := `
-INSERT INTO albums(name, popularity, release_date, total_tracks, image_url, spotify_id, spotify_url, artist_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT artist_id FROM artists WHERE spotify_id = $8))
-ON CONFLICT (spotify_id) DO UPDATE SET popularity = EXCLUDED.popularity;
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-`
-	_, err := s.DB.Exec(ctx, q, album.Name, album.Popularity, album.ReleaseDate,
-		album.TotalTracks, album.ImageURL, album.SpotifyID, album.SpotifyURL, album.ArtistSpotifyID)
+	artistQ := artistBySpotifyIDQuery(album.ArtistSpotifyID)
+
+	sql, args, err := psql.Insert("albums").
+		Columns(newAlbumCols...).
+		Values(album.Name, album.TotalTracks, album.ImageURL, album.SpotifyID, album.SpotifyURL, album.AppleURL, SubQuery(artistQ)).
+		Suffix("ON CONFLICT DO NOTHING").
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.DB.Exec(ctx, sql, args...)
 	if err != nil {
 		return fmt.Errorf("unable to create album: %w", err)
 	}
+
 	return nil
+}
+
+func albumBySpotifyIDQuery(spotifyID string) sq.SelectBuilder {
+	return sq.
+		Select("album_id").
+		From("albums").
+		Where("spotify_id = ?", spotifyID)
 }
