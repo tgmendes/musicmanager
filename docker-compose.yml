@@ -10,3 +10,10 @@ services:
       - POSTGRES_USER=musicuser
       - POSTGRES_PASSWORD=awesomemusicstuff
       - POSTGRES_DB=musicmanager
+
+  redis:
+    image:
+      redis:6
+    restart: always
+    ports:
+      - "6379:6379"

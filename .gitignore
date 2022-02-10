@@ -1,3 +1,6 @@
 .env.local
 .env
 .idea
+cmd/test
+*AuthKey_MTY4WUTFNX.p8*
+/static/node_modules/
