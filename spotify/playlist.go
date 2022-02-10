@@ -30,6 +30,7 @@ type PlaylistsResponse struct {
 type Playlist struct {
 	ID            string        `json:"id"`
 	Name          string        `json:"name"`
+	Images        []Image       `json:"images"`
 	Public        bool          `json:"public"`
 	Collaborative bool          `json:"collaborative"`
 	Items         PlaylistItems `json:"tracks"`
