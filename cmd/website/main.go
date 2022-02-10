@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
+	"github.com/tgmendes/musicmanager/apple"
 	"github.com/tgmendes/musicmanager/auth"
+	"github.com/tgmendes/musicmanager/handler"
 	"github.com/tgmendes/musicmanager/repo"
+	"github.com/tgmendes/musicmanager/spotify"
+	"golang.org/x/oauth2"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -16,29 +20,66 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	// load environment variables
 	pgURL := os.Getenv("POSTGRES_URL")
 	clientID := os.Getenv("SPOTIFY_CLIENT_ID")
 	clientSecret := os.Getenv("SPOTIFY_CLIENT_SECRET")
 	redirectURL := os.Getenv("SPOTIFY_AUTH_REDIRECT_URL")
+	appleIss := os.Getenv("APPLE_ISSUER")
+	appleKID := os.Getenv("APPLE_KID")
 
-	fmt.Println(pgURL)
+	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, pgURL)
 	if err != nil {
-		log.Fatalf("couldn't start PGX: %s\n", err)
+		log.Fatalf("could not connect to database: %s", err)
 	}
 
 	a := auth.NewAuth(clientID, clientSecret, redirectURL, auth.AllScopes())
 
-	h, err := auth.NewHandler(a, &repo.Store{DB: conn})
+	store := repo.Store{DB: conn}
+	tkns, err := store.FetchAll(ctx)
 	if err != nil {
-		log.Fatalf("problem starting handler: %s\n", err)
+		log.Fatalf("could not fetch user tokens: %s", err)
 	}
 
+	var token oauth2.Token
+	for _, tkn := range tkns {
+		token = oauth2.Token{
+			AccessToken:  tkn.AccessToken,
+			RefreshToken: tkn.RefreshToken,
+			Expiry:       time.Now(),
+		}
+	}
+
+	cl := a.Client(ctx, &token)
+	spotCl := spotify.NewClient(cl)
+
+	appleTkn := auth.GenerateToken(appleIss, appleKID)
+
+	p8key, err := ioutil.ReadFile("AuthKey_MTY4WUTFNX.p8")
+	if err != nil {
+		log.Fatalf("unable to open dev token: %s", err)
+	}
+	signedtkn, err := auth.GenerateSignedToken(appleTkn, p8key)
+	if err != nil {
+		log.Fatalf("unable to generate signed token: %s", err)
+	}
+
+	appleCl := apple.NewClient(signedtkn)
+	h := handler.Handler{
+		Store:         &store,
+		SpotifyClient: spotCl,
+		AppleClient:   appleCl,
+		SpotifyAuth:   a,
+	}
+
+	fs := http.FileServer(http.Dir("./static/"))
 	r := chi.NewRouter()
-	r.Get("/spotify-login", h.AuthoriseSpotify)
-	r.Get("/callback", h.AuthCallback)
+	r.Handle("/static/*", http.StripPrefix("/static", fs))
+	r.Get("/", h.IndexHandler)
+	r.Get("/authorise", h.AuthHandler)
+	r.Get("/playlists", h.PlaylistHandler)
+	r.Post("/migrate", h.Migrate)
+	r.Get("/callback", h.SpotifyCallbackHandler)
 
 	// Make a channel to listen for an interrupt or terminate signal from the OS.
 	// Use a buffered channel because the signal package requires it.
