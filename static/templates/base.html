@@ -1,0 +1,38 @@
+{{define "base"}}
+<!doctype html>
+<html>
+<head>
+    {{template "meta" .}}
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta charset="UTF-8">
+
+    <link href="/static/img/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180">
+    <link href="/static/img/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
+    <link href="/static/img/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
+    <link href="/static/img/site.webmanifest" rel="manifest">
+    <meta content="/static/img/browserconfig.xml" name="msapplication-config"/>
+    <meta content="5A189A" name="msapplication-TileColor">
+    <meta content="5A189A" name="theme-color">
+
+    <title>{{template "title"}}</title>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>
+    <script defer src="/static/js/authorise.js" type="text/javascript"></script>
+
+    <link href="/static/img/favicon.ico" rel="icon" type="image/x-icon">
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt&family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+          rel="stylesheet">
+    <link href="/static/fontawesome/css/all.css" rel="stylesheet">
+    <link href="/static/css/output.css" rel="stylesheet">
+</head>
+<body class="font-body">
+{{template "navbar" .}}
+<div class="container mx-auto py-8 px-4">
+    {{template "body" .}}
+</div>
+{{template "script" .}}
+</body>
+</html>
+{{end}}

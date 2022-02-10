@@ -1,0 +1,75 @@
+{{define "title"}}Playlists{{end}}
+{{define "meta"}}{{end}}
+{{define "body"}}
+<div class="container mx-auto">
+    <div class="flex flex-row gap-x-12 mt-20">
+        <div class="flex flex-col basis-1/2">
+            <div class="flex flex-row justify-center items-center mb-8">
+                <img alt="Spotify logo" class="h-14" src="/static/img/spotify-icon.png"/>
+                <h2 class="text-5xl text-center ml-4">Your Spotify Playlists</h2>
+            </div>
+
+            {{ range .SpotifyPlaylists.Items}}
+            <div class="mt-8 bg-white drop-shadow-xl px-8 py-8 rounded-lg">
+                <div class="flex flex-row gap-6">
+                    <img alt="Playlist artwork" class="h-28" src="{{(index .Images 0).URL}}">
+                    <div class="flex flex-row justify-between w-full">
+                        <div class="flex flex-col max-w-prose">
+                            <a class="font-bold text-xl hover:text-purple-100 hover:ease-in-out duration-300 text-purple-300"
+                               href="#">
+                                {{.Name}}
+                            </a>
+                            <p class="text-md">{{.Items.Total}} Songs</p>
+                            <p class="text-md text-red-600 mt-4">Not Migrated</p>
+                        </div>
+                        <div class="flex flex-row items-start ml-4" x-data>
+                            <button @click="migrate('{{.ID}}', '{{.Items.Href}}', '{{.Name}}')">
+                                <i class="hover:text-orange-100 hover:ease-in-out duration-300 text-4xl fas fa-right-left text-orange-500">
+                                </i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+        </div>
+        <div class="flex flex-col basis-1/2">
+            <div class="flex flex-row justify-center items-center mb-8">
+                <img alt="Apple Music logo" class="h-14" src="/static/img/apple-music-icon.svg"/>
+                <h2 class="text-5xl text-center ml-4">Your Apple Playlists</h2>
+            </div>
+
+            {{ range .ApplePlaylists.Data}}
+            <div class="mt-8 bg-white drop-shadow-xl px-8 py-8 rounded-lg">
+                <div class="flex flex-row gap-6">
+                    <img alt="Apple Music logo" class="h-28" src="/static/img/apple-music-icon.svg">
+                    <div class="flex flex-row justify-between w-full">
+                        <div class="flex flex-col">
+                            <a class="font-bold text-xl hover:text-purple-100 hover:ease-in-out duration-300 text-purple-300"
+                               href="#">
+                                {{.Attributes.Name}}
+                            </a>
+                            <p class="text-md">{{.Relationships.Tracks.Meta.Total}} Songs</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+</div>
+{{end}}
+{{define "script"}}
+<script>
+    const migrate = (id, href, name) => {
+        const req = {playlist_id: id, playlist_href: href, playlist_name: name}
+        console.log(JSON.stringify(req))
+        fetch('/migrate', {
+            method: 'POST',
+            body: JSON.stringify(req)
+        }).then(response => console.log(response))
+    }
+</script>
+{{end}}
