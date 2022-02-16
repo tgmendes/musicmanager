@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"github.com/jackc/pgx/v4"
-	"github.com/tgmendes/musicmanager/auth"
-	"github.com/tgmendes/musicmanager/handler"
-	"github.com/tgmendes/musicmanager/repo"
-	"github.com/tgmendes/musicmanager/spotify"
+	"github.com/tgmendes/soundfuse/auth"
+	"github.com/tgmendes/soundfuse/handler"
+	"github.com/tgmendes/soundfuse/repo"
+	"github.com/tgmendes/soundfuse/spotify"
 	"golang.org/x/oauth2"
 	"os"
 	"time"
@@ -26,7 +26,7 @@ func main() {
 		panic("no conn")
 	}
 
-	a := auth.NewAuth(clientID, clientSecret, redirectURL, auth.AllScopes())
+	a := auth.NewSpotify(clientID, clientSecret, redirectURL, auth.AllScopes())
 
 	store := repo.Store{DB: conn}
 	tkns, err := store.FetchAll(ctx)

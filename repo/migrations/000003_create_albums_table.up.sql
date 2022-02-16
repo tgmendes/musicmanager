@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS albums(
-    album_id serial PRIMARY KEY,
+    album_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name VARCHAR(255) NOT NULL,
     total_tracks smallint,
     image_url VARCHAR(3000),

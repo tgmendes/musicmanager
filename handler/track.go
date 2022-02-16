@@ -2,8 +2,8 @@ package handler
 
 import (
 	"context"
-	"github.com/tgmendes/musicmanager/repo"
-	"github.com/tgmendes/musicmanager/spotify"
+	"github.com/tgmendes/soundfuse/repo"
+	"github.com/tgmendes/soundfuse/spotify"
 )
 
 func (h *Handler) StoreTrack(ctx context.Context, track spotify.Track) error {

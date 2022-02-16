@@ -4,12 +4,12 @@ import (
 	"context"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
-	"github.com/tgmendes/musicmanager/apple"
-	"github.com/tgmendes/musicmanager/auth"
-	"github.com/tgmendes/musicmanager/handler"
-	"github.com/tgmendes/musicmanager/repo"
-	"github.com/tgmendes/musicmanager/spotify"
-	"golang.org/x/oauth2"
+	"github.com/tgmendes/soundfuse/apple"
+	"github.com/tgmendes/soundfuse/auth"
+	"github.com/tgmendes/soundfuse/handler"
+	"github.com/tgmendes/soundfuse/middleware"
+	"github.com/tgmendes/soundfuse/repo"
+	"github.com/tgmendes/soundfuse/spotify"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -33,53 +33,43 @@ func main() {
 		log.Fatalf("could not connect to database: %s", err)
 	}
 
-	a := auth.NewAuth(clientID, clientSecret, redirectURL, auth.AllScopes())
-
 	store := repo.Store{DB: conn}
-	tkns, err := store.FetchAll(ctx)
-	if err != nil {
-		log.Fatalf("could not fetch user tokens: %s", err)
-	}
 
-	var token oauth2.Token
-	for _, tkn := range tkns {
-		token = oauth2.Token{
-			AccessToken:  tkn.AccessToken,
-			RefreshToken: tkn.RefreshToken,
-			Expiry:       time.Now(),
-		}
-	}
-
-	cl := a.Client(ctx, &token)
-	spotCl := spotify.NewClient(cl)
-
-	appleTkn := auth.GenerateToken(appleIss, appleKID)
+	spotifyAuth := auth.NewSpotify(clientID, clientSecret, redirectURL, spotify.AllScopes())
 
 	p8key, err := ioutil.ReadFile("AuthKey_MTY4WUTFNX.p8")
 	if err != nil {
 		log.Fatalf("unable to open dev token: %s", err)
 	}
-	signedtkn, err := auth.GenerateSignedToken(appleTkn, p8key)
+
+	appleAuth, err := auth.NewApple(appleIss, appleKID, p8key)
 	if err != nil {
-		log.Fatalf("unable to generate signed token: %s", err)
+		log.Fatalf("start apple auth: %s", err)
 	}
 
-	appleCl := apple.NewClient(signedtkn)
+	devTkn, err := appleAuth.SignedToken()
+	if err != nil {
+		log.Fatalf("getting apple token: %s", err)
+	}
 	h := handler.Handler{
-		Store:         &store,
-		SpotifyClient: spotCl,
-		AppleClient:   appleCl,
-		SpotifyAuth:   a,
+		Store:       &store,
+		AppleAuth:   appleAuth,
+		AppleClient: apple.NewClient(devTkn),
+		SpotifyAuth: spotifyAuth,
 	}
 
 	fs := http.FileServer(http.Dir("./static/"))
 	r := chi.NewRouter()
+
 	r.Handle("/static/*", http.StripPrefix("/static", fs))
 	r.Get("/", h.IndexHandler)
 	r.Get("/authorise", h.AuthHandler)
-	r.Get("/playlists", h.PlaylistHandler)
-	r.Post("/migrate", h.Migrate)
 	r.Get("/callback", h.SpotifyCallbackHandler)
+
+	authGroup := r.Group(nil)
+	authGroup.Use(middleware.Auth)
+	authGroup.Get("/playlists", h.PlaylistHandler)
+	authGroup.Post("/migrate", h.Migrate)
 
 	// Make a channel to listen for an interrupt or terminate signal from the OS.
 	// Use a buffered channel because the signal package requires it.

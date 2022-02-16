@@ -1,14 +1,15 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/tgmendes/musicmanager/apple"
-	"github.com/tgmendes/musicmanager/spotify"
+	"github.com/tgmendes/soundfuse/apple"
+	"github.com/tgmendes/soundfuse/auth"
+	"github.com/tgmendes/soundfuse/spotify"
+	"golang.org/x/oauth2"
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 type MigrateRequest struct {
@@ -22,28 +23,26 @@ func (h Handler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) PlaylistHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("appleToken")
+	userTokens, ok := auth.TokenFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorised", http.StatusUnauthorized)
+		return
+	}
+	spotTkn := oauth2.Token{
+		AccessToken:  userTokens.SpotifyAccessToken,
+		RefreshToken: userTokens.SpotifyRefreshToken,
+		Expiry:       time.Now(),
+	}
+	spotifyClient := spotify.NewClient(h.SpotifyAuth.Client(r.Context(), &spotTkn))
+	playlists, err := spotifyClient.GetUsersPlaylists(r.Context(), userTokens.SpotifyUserID, 50)
 	if err != nil {
-		if err == http.ErrNoCookie {
-			http.Redirect(w, r, "/authorise", 302)
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	playlists, err := h.SpotifyClient.GetUsersPlaylists(r.Context(), "a2mqb93izo81vhk8ijacgz73c", 50)
+	applePlaylists, err := h.AppleClient.FetchUserPlaylists(r.Context(), userTokens.AppleUserToken)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("[spotify] %s", err)))
-		return
-	}
-
-	applePlaylists, err := h.AppleClient.FetchUserPlaylists(r.Context(), cookie.Value)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("[apple] %s", err)))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -67,104 +66,6 @@ func (h Handler) PlaylistHandler(w http.ResponseWriter, r *http.Request) {
 	h.renderTemplate(w, "playlists", tmplData)
 }
 
-func (h Handler) AuthHandler(w http.ResponseWriter, r *http.Request) {
-	url := h.SpotifyAuth.AuthCodeURL()
-	tmplData := struct {
-		AppleDevToken  string
-		SpotifyAuthURL string
-	}{
-		AppleDevToken:  h.AppleClient.DevToken,
-		SpotifyAuthURL: url,
-	}
-
-	h.renderTemplate(w, "authorise", tmplData)
-}
-
-func (h *Handler) SpotifyCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	values := r.URL.Query()
-	if err := values.Get("error"); err != "" {
-		http.Error(w, "Couldn't get token", http.StatusForbidden)
-		return
-	}
-
-	tkn, err := h.SpotifyAuth.NewToken(ctx, values.Get("code"), values.Get("state"))
-	if err != nil {
-		http.Error(w, "Couldn't get token", http.StatusForbidden)
-		return
-	}
-
-	tknString, err := json.Marshal(tkn)
-	if err != nil {
-		http.Error(w, "unable to generate token string", http.StatusInternalServerError)
-	}
-	c := http.Cookie{
-		Name:  "SpotifyUserToken",
-		Value: string(tknString),
-	}
-	http.SetCookie(w, &c)
-	http.Redirect(w, r, "/authorise", 302)
-}
-
-func (h Handler) Migrate(w http.ResponseWriter, r *http.Request) {
-	appleMusicTkn, err := r.Cookie("appleToken")
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	defer r.Body.Close()
-	var req MigrateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	playlist, err := h.SpotifyClient.GetPlaylistItems(r.Context(), req.PlaylistHref)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	var tracksToAdd []apple.RelationshipTrack
-	var isrcs []string
-	var count int
-	for _, item := range playlist.Items {
-		if count == apple.ISRCLimit-1 {
-			tracks, err := h.fetchISRCSongs(r.Context(), isrcs)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				return
-			}
-			tracksToAdd = append(tracksToAdd, tracks...)
-
-			isrcs = nil
-			count = 0
-		}
-
-		isrcs = append(isrcs, item.Track.ExternalIDs.ISRC)
-		count++
-	}
-
-	tracks, err := h.fetchISRCSongs(r.Context(), isrcs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-	tracksToAdd = append(tracksToAdd, tracks...)
-	err = h.createPlaylist(r.Context(), appleMusicTkn.Value, req.PlaylistName, tracksToAdd)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func (h Handler) renderTemplate(w http.ResponseWriter, pagename string, data interface{}) {
 	base := filepath.Join("static/templates", "base.html")
 	navbar := filepath.Join("static/templates", "navbar.html")
@@ -172,54 +73,11 @@ func (h Handler) renderTemplate(w http.ResponseWriter, pagename string, data int
 
 	tmpl, err := template.ParseFiles(base, navbar, currPage)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	err = tmpl.ExecuteTemplate(w, "base", data)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-func (h Handler) fetchISRCSongs(ctx context.Context, isrcs []string) ([]apple.RelationshipTrack, error) {
-	songsResp, err := h.AppleClient.FetchSongsByISRCs(ctx, isrcs)
-	if err != nil {
-		return nil, err
-	}
-
-	var tracks []apple.RelationshipTrack
-	seenISRC := map[string]struct{}{}
-	for _, track := range songsResp.Data {
-		if _, ok := seenISRC[track.Attributes.ISRC]; ok {
-			continue
-		}
-		seenISRC[track.Attributes.ISRC] = struct{}{}
-		toAppend := apple.RelationshipTrack{
-			ID:   track.ID,
-			Type: track.Type,
-		}
-		tracks = append(tracks, toAppend)
-	}
-
-	return tracks, nil
-}
-
-func (h Handler) createPlaylist(ctx context.Context, userTkn, name string, tracks []apple.RelationshipTrack) error {
-	plReq := apple.CreatePlaylistRequest{
-		Attributes: apple.CreatePlaylistAttributes{
-			Name:        name,
-			Description: "Music manager auto generated playlist from spotify",
-		},
-		Relationships: apple.CreatePlaylistRelationships{
-			Tracks: apple.TracksData{
-				Data: tracks,
-			},
-		},
-	}
-	err := h.AppleClient.CreateUserPlaylist(ctx, userTkn, plReq)
-	if err != nil {
-		return err
-	}
-	return nil
 }

@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS users(
+    user_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    spotify_user_id VARCHAR(255) UNIQUE,
+    apple_storefront_id VARCHAR(10)
+);

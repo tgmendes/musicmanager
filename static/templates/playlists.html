@@ -65,11 +65,10 @@
 <script>
     const migrate = (id, href, name) => {
         const req = {playlist_id: id, playlist_href: href, playlist_name: name}
-        console.log(JSON.stringify(req))
         fetch('/migrate', {
             method: 'POST',
             body: JSON.stringify(req)
-        }).then(response => console.log(response))
+        }).then(response => response.json()).then(data => console.log(data))
     }
 </script>
 {{end}}

@@ -9,13 +9,38 @@ import (
 	"time"
 )
 
-func GenerateSignedToken(tkn *jwt.Token, p8key []byte) (string, error) {
-	key, err := readPrivateKey(p8key)
-	if err != nil {
-		return "", err
+type Apple struct {
+	iss        string
+	kid        string
+	privateKey *ecdsa.PrivateKey
+	token      *jwt.Token
+}
+
+func NewApple(issuer, kid string, p8key []byte) (*Apple, error) {
+	a := Apple{
+		iss: issuer,
+		kid: kid,
 	}
 
-	signed, err := tkn.SignedString(key)
+	pKey, err := readPrivateKey(p8key)
+	if err != nil {
+		return nil, err
+	}
+	a.privateKey = pKey
+
+	a.token = a.GenerateToken()
+	return &a, nil
+}
+
+func (a *Apple) SignedToken() (string, error) {
+	if a.token == nil {
+		a.token = a.GenerateToken()
+	}
+
+	if err := a.token.Claims.Valid(); err != nil {
+		a.token = a.GenerateToken()
+	}
+	signed, err := a.token.SignedString(a.privateKey)
 	if err != nil {
 		return "", err
 	}
@@ -23,22 +48,27 @@ func GenerateSignedToken(tkn *jwt.Token, p8key []byte) (string, error) {
 	return signed, nil
 }
 
-func GenerateToken(issuer, kid string) *jwt.Token {
-	tkn := jwt.NewWithClaims(
-		jwt.SigningMethodES256,
-		jwt.StandardClaims{
-			Issuer:    issuer,
+func (a *Apple) GenerateToken() *jwt.Token {
+	tkn := jwt.Token{
+		Header: map[string]interface{}{
+			"typ": "JWT",
+			"alg": jwt.SigningMethodES256.Alg(),
+			"kid": a.kid,
+		},
+		Claims: jwt.StandardClaims{
+			Issuer:    a.iss,
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Unix(),
 		},
-	)
-	tkn.Header["kid"] = kid
-	return tkn
+		Method: jwt.SigningMethodES256,
+	}
+
+	return &tkn
 }
 
-func readPrivateKey(p8key []byte) (*ecdsa.PrivateKey, error) {
+func readPrivateKey(key []byte) (*ecdsa.PrivateKey, error) {
 	// Here you need to decode the Apple private key, which is in pem format
-	block, _ := pem.Decode(p8key)
+	block, _ := pem.Decode(key)
 	// Check if it's a private key
 	if block == nil || block.Type != "PRIVATE KEY" {
 		return nil, errors.New("failed to decode PEM block containing private key")
@@ -47,7 +77,7 @@ func readPrivateKey(p8key []byte) (*ecdsa.PrivateKey, error) {
 	// Now you need an instance of *ecdsa.PrivateKey
 	parsedKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	ecdsaPrivateKey, ok := parsedKey.(*ecdsa.PrivateKey)

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS artists(
-    artist_id serial PRIMARY KEY,
+    artist_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name VARCHAR(255) NOT NULL,
     image_url VARCHAR(3000),
     spotify_id VARCHAR(62) UNIQUE,

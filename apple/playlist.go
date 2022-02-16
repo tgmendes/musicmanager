@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -84,12 +83,6 @@ func (c Client) CreateUserPlaylist(ctx context.Context, musicUserTkn string, plR
 	}
 	defer resp.Body.Close()
 
-	bB, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(bB))
 	return nil
 }
 

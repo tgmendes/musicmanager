@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS tracks(
-    track_id serial PRIMARY KEY,
+    track_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name VARCHAR(255) NOT NULL,
     duration_ms integer,
     isrc VARCHAR(255) UNIQUE,
