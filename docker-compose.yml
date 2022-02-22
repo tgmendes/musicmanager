@@ -7,9 +7,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=musicuser
+      - POSTGRES_USER=soundfuse
       - POSTGRES_PASSWORD=awesomemusicstuff
-      - POSTGRES_DB=musicmanager
+      - POSTGRES_DB=soundfuse
 
   redis:
     image:

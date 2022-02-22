@@ -2,14 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v4"
-	"github.com/tgmendes/soundfuse/apple"
-	"github.com/tgmendes/soundfuse/auth"
-	"github.com/tgmendes/soundfuse/handler"
-	"github.com/tgmendes/soundfuse/middleware"
-	"github.com/tgmendes/soundfuse/repo"
-	"github.com/tgmendes/soundfuse/spotify"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -17,15 +9,36 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v4"
+	"github.com/spf13/viper"
+	"github.com/tgmendes/soundfuse/apple"
+	"github.com/tgmendes/soundfuse/auth"
+	"github.com/tgmendes/soundfuse/handler"
+	"github.com/tgmendes/soundfuse/middleware"
+	"github.com/tgmendes/soundfuse/repo"
+	"github.com/tgmendes/soundfuse/spotify"
+	"github.com/tgmendes/soundfuse/worker"
 )
 
 func main() {
-	pgURL := os.Getenv("POSTGRES_URL")
-	clientID := os.Getenv("SPOTIFY_CLIENT_ID")
-	clientSecret := os.Getenv("SPOTIFY_CLIENT_SECRET")
-	redirectURL := os.Getenv("SPOTIFY_AUTH_REDIRECT_URL")
-	appleIss := os.Getenv("APPLE_ISSUER")
-	appleKID := os.Getenv("APPLE_KID")
+	viper.SetConfigName(".env.local") // name of config file (without extension)
+	viper.SetConfigType("env")        // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath(".")          // path to look for the config file in
+	err := viper.ReadInConfig()       // Find and read the config file
+	if err != nil {                   // Handle errors reading the config file
+		log.Fatalf("Fatal error config file: %s \n", err)
+	}
+
+	pgURL := viper.GetString("POSTGRES_URL")
+	redisAddr := viper.GetString("REDIS_ADDR")
+	clientID := viper.GetString("SPOTIFY_CLIENT_ID")
+	clientSecret := viper.GetString("SPOTIFY_CLIENT_SECRET")
+	redirectURL := viper.GetString("SPOTIFY_AUTH_REDIRECT_URL")
+	appleIss := viper.GetString("APPLE_ISSUER")
+	appleKID := viper.GetString("APPLE_KID")
 
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, pgURL)
@@ -33,7 +46,9 @@ func main() {
 		log.Fatalf("could not connect to database: %s", err)
 	}
 
+	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
 	store := repo.Store{DB: conn}
+	cache := repo.Cache{Redis: rdb}
 
 	spotifyAuth := auth.NewSpotify(clientID, clientSecret, redirectURL, spotify.AllScopes())
 
@@ -51,11 +66,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("getting apple token: %s", err)
 	}
+
+	w := worker.Pool{
+		TasksChan:  make(chan *worker.Task, 50),
+		NumWorkers: 5,
+	}
+	w.Run(ctx)
+
 	h := handler.Handler{
 		Store:       &store,
+		Cache:       &cache,
 		AppleAuth:   appleAuth,
 		AppleClient: apple.NewClient(devTkn),
 		SpotifyAuth: spotifyAuth,
+		Worker:      &w,
 	}
 
 	fs := http.FileServer(http.Dir("./static/"))

@@ -7,7 +7,7 @@ import (
 
 type Task struct {
 	ReqID string
-	F     func() error
+	F     func(context.Context) error
 }
 
 type Pool struct {
@@ -29,15 +29,14 @@ func (p *Pool) spawnWorker(ctx context.Context, id int) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("Worker %d shutting down\n", id)
 			return
 		case task := <-p.TasksChan:
-			fmt.Printf("worker %d started on %s\n", id, task.ReqID)
-			err := task.F()
+			err := task.F(ctx)
 			if err != nil {
-				fmt.Printf("task %s errored: %s", task.ReqID, err)
+				fmt.Printf("task %s errored: %s\n", task.ReqID, err)
+				return
 			}
-			fmt.Printf("worker %d finished on %s\n", id, task.ReqID)
+			fmt.Printf("worker %d completed task %s!\n", id, task.ReqID)
 		}
 	}
 }

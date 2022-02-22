@@ -3,11 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
+	"log"
+	"time"
+
 	"github.com/tgmendes/soundfuse/apple"
 	"github.com/tgmendes/soundfuse/auth"
+	"github.com/tgmendes/soundfuse/repo"
 	"github.com/tgmendes/soundfuse/spotify"
 	"golang.org/x/oauth2"
-	"time"
 )
 
 var ErrMissingUserTokens = errors.New("missing user tokens in request context")
@@ -26,25 +29,28 @@ type SongMatches struct {
 type MigrationService struct {
 	appleClient   *apple.Client
 	spotifyClient *spotify.Client
+	cache         *repo.Cache
 	userTokens    auth.CombinedTokens
 
 	migrationResults *Results
 }
 
-func NewMigrationService(ctx context.Context, spotifyAuth *auth.Spotify, appleClient *apple.Client) (*MigrationService, error) {
-	userTokens, ok := auth.TokenFromContext(ctx)
-	if !ok {
-		return nil, ErrMissingUserTokens
-	}
-
+func NewMigrationService(
+	ctx context.Context,
+	spotifyAuth *auth.Spotify,
+	appleClient *apple.Client,
+	cache *repo.Cache,
+	userTokens auth.CombinedTokens) (*MigrationService, error) {
 	spotTkn := oauth2.Token{
 		AccessToken:  userTokens.SpotifyAccessToken,
 		RefreshToken: userTokens.SpotifyRefreshToken,
 		Expiry:       time.Now(),
 	}
+
 	return &MigrationService{
 		appleClient:   appleClient,
 		spotifyClient: spotify.NewClient(spotifyAuth.Client(ctx, &spotTkn)),
+		cache:         cache,
 		userTokens:    userTokens,
 	}, nil
 }
@@ -82,11 +88,36 @@ func (m *MigrationService) Migrate(ctx context.Context, req MigrateRequest) (*Re
 func (m *MigrationService) spotifyToAppleTracks(ctx context.Context, storefrontID string, spotifyTracks []spotify.TrackItem) ([]apple.RelationshipTrack, error) {
 	var appleTracks []apple.RelationshipTrack
 	var isrcs []string
+	seenISRC := map[string]struct{}{}
+
 	for i, item := range spotifyTracks {
 		m.migrationResults.Matched[item.Track.ExternalIDs.ISRC] = &SongMatches{
 			Name:      item.Track.Name,
 			SpotifyID: item.Track.ID,
 		}
+
+		ids, err := m.cache.ISRCToAppleID(ctx, item.Track.ExternalIDs.ISRC)
+		if err != nil {
+			return nil, err
+		}
+
+		if ids.AppleID != "" {
+			log.Printf("ID %s found in cache\n", item.Track.ExternalIDs.ISRC)
+			if _, ok := seenISRC[item.Track.ExternalIDs.ISRC]; ok {
+				continue
+			}
+
+			toAppend := apple.RelationshipTrack{
+				ID:   ids.AppleID,
+				Type: ids.AppleType,
+			}
+			appleTracks = append(appleTracks, toAppend)
+			seenISRC[item.Track.ExternalIDs.ISRC] = struct{}{}
+			m.migrationResults.Matched[item.Track.ExternalIDs.ISRC].AppleID = ids.AppleID
+			continue
+		}
+
+		log.Printf("ID %s not found in cache\n", item.Track.ExternalIDs.ISRC)
 		isrcs = append(isrcs, item.Track.ExternalIDs.ISRC)
 
 		if len(isrcs) == apple.ISRCLimit-1 || i == len(spotifyTracks)-1 {
@@ -95,20 +126,25 @@ func (m *MigrationService) spotifyToAppleTracks(ctx context.Context, storefrontI
 				return nil, err
 			}
 
-			seenISRC := map[string]struct{}{}
 			for _, track := range songsResp.Data {
-				if _, ok := seenISRC[track.Attributes.ISRC]; ok {
-					continue
-				}
-				if _, ok := m.migrationResults.Matched[track.Attributes.ISRC]; ok {
-					m.migrationResults.Matched[track.Attributes.ISRC].AppleID = track.ID
-				}
+				match := m.migrationResults.Matched[track.Attributes.ISRC]
+				match.AppleID = track.ID
 				seenISRC[track.Attributes.ISRC] = struct{}{}
+
 				toAppend := apple.RelationshipTrack{
 					ID:   track.ID,
 					Type: track.Type,
 				}
 				appleTracks = append(appleTracks, toAppend)
+				idMap := repo.IDMap{
+					AppleID:   match.AppleID,
+					SpotifyID: match.SpotifyID,
+					AppleType: track.Type,
+				}
+				err := m.cache.SetISRCIDs(ctx, track.Attributes.ISRC, idMap)
+				if err != nil {
+					return nil, err
+				}
 			}
 			isrcs = nil
 		}
