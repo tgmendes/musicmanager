@@ -8,18 +8,15 @@
 {{define "body"}}
 <div class="container mx-auto max-w-lg">
     <div class="flex flex-col mt-8 bg-white drop-shadow-xl px-8 py-8 rounded-lg">
-        <h1 class="text-5xl text-center text-purple-300">Connect to your music services</h1>
+        <h1 class="text-5xl text-center text-secondary-500">Connect to your music services</h1>
 
-        <div class="flex justify-between mt-20"
-             x-data="auth()"
-             x-init="$watch('appleToken', val => setCookie('soundfuse_appleusertoken', val))">
+        <div class="flex justify-between mt-20" x-data="auth()"
+            x-init="$watch('appleToken', val => setCookie('soundfuse_appleusertoken', val))">
             <img alt="Apple Music logo" class="max-h-10" src="/static/img/apple-music-logo-svg.svg">
             <template x-if="appleToken === ''">
-                <button
-                        @click="authorize()"
-                        class="bg-orange-500 text-white px-4 py-2 uppercase rounded-md items-center hover:shadow-xl hover:ease-in-out duration-300"
-                        id="apple-music-authorize"
-                        x-data>
+                <button @click="authorize()"
+                    class="bg-primary-500 text-white px-4 py-2 uppercase rounded-md items-center hover:shadow-xl hover:ease-in-out duration-300"
+                    id="apple-music-authorize" x-data>
                     <i class="fas fa-link mr-2"></i>Connect
                 </button>
             </template>
@@ -30,10 +27,8 @@
         <div class="flex justify-between mt-10" x-data>
             <img alt="Spotify logo" class="max-h-10" src="/static/img/spotify-logo.png">
             <template x-if="getCookie('soundfuse_spotifyaccesstoken') === ''">
-                <a
-                        class="bg-orange-500 text-white px-4 py-2 uppercase rounded-md items-center  hover:shadow-xl hover:ease-in-out duration-300"
-                        href="{{.SpotifyAuthURL}}"
-                        x-data>
+                <a class="bg-primary-500 text-white px-4 py-2 uppercase rounded-md items-center  hover:shadow-xl hover:ease-in-out duration-300"
+                    href="{{.SpotifyAuthURL}}" x-data>
                     <i class="fas fa-link mr-2"></i>Connect
                 </a>
             </template>
@@ -43,18 +38,13 @@
         </div>
         <div class="flex justify-between mt-10" x-data>
             <template x-if="canLogin()">
-                <a
-                        class="bg-orange-500 text-white px-4 py-2 uppercase rounded-md items-center  hover:shadow-xl hover:ease-in-out duration-300"
-                        href="/playlists"
-                        x-data>
+                <a class="bg-primary-500 text-white px-4 py-2 uppercase rounded-md items-center  hover:shadow-xl hover:ease-in-out duration-300"
+                    href="/playlists" x-data>
                     Login
                 </a>
             </template>
             <template x-if="!canLogin()">
-                <button
-                        class="bg-slate-400 text-white px-4 py-2 uppercase rounded-md items-center"
-                        disabled
-                        x-data>
+                <button class="bg-slate-400 text-white px-4 py-2 uppercase rounded-md items-center" disabled x-data>
                     <i class="fas fa-link mr-2"></i>Login
                 </button>
             </template>
